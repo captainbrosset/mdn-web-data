@@ -1,0 +1,22 @@
+{
+  "name": "mdn-web-data",
+  "version": "0.0.1",
+  "description": "Data about the web, from MDN.",
+  "main": "index.js",
+  "author": "Patrick Brosset",
+  "license": "CC0-1.0",
+  "dependencies": {
+    "@mdn/browser-compat-data": "^5.2.47",
+    "glob": "^9.3.2",
+    "markdown-to-text": "^0.1.1"
+  },
+  "scripts": {
+    "build": "npm run get-mdn-content && npm run generate-data && npm run delete-mdn-content",
+    "get-mdn-content": "mkdir mdn-content && cd mdn-content && git clone --depth 1 https://github.com/mdn/content.git",
+    "generate-data": "node generate.js",
+    "delete-mdn-content": "rm -rf mdn-content"
+  },
+  "files": [
+    "dist"
+  ]
+}
