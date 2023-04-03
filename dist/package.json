@@ -1,0 +1,24 @@
+{
+  "main": "data.json",
+  "exports": {
+    ".": "./data.json"
+  },
+  "name": "mdn-web-data",
+  "version": "0.0.1",
+  "description": "MDN data about the web platform",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/captainbrosset/mdn-web-data.git"
+  },
+  "keywords": [
+    "bcd",
+    "mdn",
+    "mdn-web-data"
+  ],
+  "author": "Patrick Brosset",
+  "license": "CC0-1.0",
+  "bugs": {
+    "url": "https://github.com/captainbrosset/mdn-web-data/issues"
+  },
+  "homepage": "https://github.com/captainbrosset/mdn-web-data#readme"
+}

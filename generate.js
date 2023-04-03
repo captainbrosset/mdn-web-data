@@ -173,8 +173,32 @@ function cleanupBCD(bcd) {
 }
 
 async function saveDataToFile(data) {
-  const json = JSON.stringify(data, null, 2);
+  const json = JSON.stringify(data);
   await fs.writeFile(`${DIST_DIR}data.json`, json);
+}
+
+async function updateDistPackage() {
+  const sourcePackage = JSON.parse(
+    await fs.readFile('./package.json', 'utf-8')
+  );
+  const distPackage = JSON.parse(
+    await fs.readFile(`${DIST_DIR}package.json`, 'utf-8')
+  );
+
+  // Mirror some of the information from the source package.json.
+  // This is mostly used to bump the version number. But may
+  // be useful if some of the other fields change too.
+  distPackage.name = sourcePackage.name;
+  distPackage.version = sourcePackage.version;
+  distPackage.description = sourcePackage.description;
+  distPackage.repository = sourcePackage.repository;
+  distPackage.bugs = sourcePackage.bugs;
+  distPackage.homepage = sourcePackage.homepage;
+  distPackage.author = sourcePackage.author;
+  distPackage.license = sourcePackage.license;
+
+  // Write distPackage to the dist package.json file.
+  await fs.writeFile(`${DIST_DIR}package.json`, JSON.stringify(distPackage, null, 2));
 }
 
 async function main() {
@@ -222,7 +246,9 @@ async function main() {
     }
   }
 
-  saveDataToFile(data);
+  await saveDataToFile(data);
+
+  await updateDistPackage();
 }
 
 main();
