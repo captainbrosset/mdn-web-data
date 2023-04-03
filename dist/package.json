@@ -3,6 +3,7 @@
   "exports": {
     ".": "./data.json"
   },
+  "type": "module",
   "name": "mdn-web-data",
   "version": "0.0.1",
   "description": "MDN data about the web platform",

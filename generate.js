@@ -1,8 +1,10 @@
-const glob = require("glob");
-const fs = require("fs").promises;
-const removeMarkdown = require("markdown-to-text").default;
-const bcd = require('@mdn/browser-compat-data');
-const path = require('path');
+import fs from "fs/promises";
+import path from "path";
+import glob from "glob";
+
+import bcd from "@mdn/browser-compat-data" assert { type: "json" };
+import markdownToText from "markdown-to-text";
+const removeMarkdown = markdownToText.default;
 
 const MDN_CONTENT_DIR = "./mdn-content/content/files/en-us/";
 const DIST_DIR = "./dist/";
@@ -10,6 +12,9 @@ const FILES_TO_COPY = [
   "README.md"
 ];
 
+/**
+ * Get the list of all MDN markdown files that we want to process.
+ */
 function getAllFiles() {
   const files = glob("**/*.md", {
     cwd: MDN_CONTENT_DIR,
@@ -19,10 +24,18 @@ function getAllFiles() {
   return files;
 }
 
+/**
+ * Given a file path, return the content of the file.
+ */
 function getFileContent(filePath) {
   return fs.readFile(filePath, "utf8");
 }
 
+/**
+ * Given the content of a file, return either null if the
+ * file doesn't have front matter or an object with the
+ * front matter fields.
+ */
 function getFrontMatter(file) {
   if (!file.startsWith("---")) {
     return null;
@@ -63,6 +76,12 @@ function getFrontMatter(file) {
   return fields;
 }
 
+/**
+ * Given the content of a file, return the summary.
+ * It's assumed that the file contains a front-matter section.
+ * The function searches for the first usable paragraph after
+ * the front-matter section.
+ */
 function getFileSummary(fileContent) {
   const lines = fileContent.split("\n");
 
@@ -99,6 +118,12 @@ function getFileSummary(fileContent) {
   return convertMDToText(summary);
 }
 
+/**
+ * Given some markdown content, return the corresponding
+ * plain text.
+ * This function takes care of some special cases that are
+ * specific to MDN (like the **`<element>`** and {{macros}}).
+ */
 function convertMDToText(md) {
   // Before converting md to text, take care of the
   // **`<element>`** cases as they're not handled
@@ -129,6 +154,13 @@ function getMDNURL(frontMatter) {
   return `https://developer.mozilla.org/en-US/docs/${frontMatter.slug}`;
 }
 
+/**
+ * From an MDN markdown page, retrun the browser compat data
+ * from BCD.
+ * To do this, the browser-compat field is extracted from the
+ * front matter fields object.
+ * If no data is found, null is returned.
+ */
 function getBrowserCompat(frontMatter) {
   if (!frontMatter["browser-compat"]) {
     return null;

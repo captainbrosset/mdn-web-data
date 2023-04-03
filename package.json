@@ -2,6 +2,7 @@
   "name": "mdn-web-data",
   "version": "0.0.1",
   "description": "MDN data about the web platform",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/captainbrosset/mdn-web-data.git"
