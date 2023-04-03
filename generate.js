@@ -2,9 +2,13 @@ const glob = require("glob");
 const fs = require("fs").promises;
 const removeMarkdown = require("markdown-to-text").default;
 const bcd = require('@mdn/browser-compat-data');
+const path = require('path');
 
 const MDN_CONTENT_DIR = "./mdn-content/content/files/en-us/";
 const DIST_DIR = "./dist/";
+const FILES_TO_COPY = [
+  "README.md"
+];
 
 function getAllFiles() {
   const files = glob("**/*.md", {
@@ -201,6 +205,12 @@ async function updateDistPackage() {
   await fs.writeFile(`${DIST_DIR}package.json`, JSON.stringify(distPackage, null, 2));
 }
 
+async function copyFilesToDist() {
+  for (const file of FILES_TO_COPY) {
+    await fs.copyFile(file, path.join(DIST_DIR, path.basename(file)));
+  }
+}
+
 async function main() {
   const files = await getAllFiles();
 
@@ -249,6 +259,8 @@ async function main() {
   await saveDataToFile(data);
 
   await updateDistPackage();
+
+  await copyFilesToDist();
 }
 
 main();
