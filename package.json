@@ -15,6 +15,7 @@
   "license": "CC0-1.0",
   "dependencies": {
     "@mdn/browser-compat-data": "^5.2.47",
+    "@webref/css": "^6.4.5",
     "glob": "^9.3.2",
     "markdown-to-text": "^0.1.1"
   },

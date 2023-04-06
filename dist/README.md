@@ -4,15 +4,19 @@ This package exposes easy to use Web Platform documentation and compatibility da
 
 It contains information about each and every Web feature that's documented on MDN. This includes CSS properties or selectors, HTML tags or attributes, or even JavaScript language features or APIs.
 
-The data comes from the following two repositories:
+The data comes from the following repositories:
 
 * [mdn/content](https://github.com/mdn/content):
 
   This repository is used to extract the description for each and every Web feature contained in this package.
 
-* [BCD](https://github.com/mdn/browser-compat-data):
+* [mdn/browser-compat-data](https://github.com/mdn/browser-compat-data):
 
   This repository is used to extract browser compatibility data for each Web Platform feature.
+
+* [mdn/data](https://github.com/mdn/data):
+
+  This repository is used to extract CSS syntax data.
 
 ## Usage
 
@@ -25,7 +29,7 @@ npm install mdn-web-data
 Use the data:
 
 ```js
-const mdnWebData = require("mdn-web-data");
+import mdnWebData from "mdn-web-data";
 
 console.log(mdnWebData.css.property.margin.summary);
 ```

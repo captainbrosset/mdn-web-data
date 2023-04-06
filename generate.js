@@ -3,6 +3,7 @@ import path from "path";
 import glob from "glob";
 
 import bcd from "@mdn/browser-compat-data" assert { type: "json" };
+import css from "@webref/css";
 import markdownToText from "markdown-to-text";
 const removeMarkdown = markdownToText.default;
 
@@ -243,12 +244,105 @@ async function copyFilesToDist() {
   }
 }
 
+/**
+ * Given a spec name like "css-overflow", or "css-text-4"
+ * extract on one side, the spec name, and on the other
+ * side the optional spec version number
+ */
+function parseSpecShortName(shortName) {
+  const parts = shortName.split("-");
+
+  // If the last part is a number.
+  if (parts[parts.length - 1].match(/^[0-9]+$/)) {
+    return {
+      name: parts.slice(0, -1).join("-"),
+      version: parseInt(parts[parts.length - 1]),
+    };
+  }
+
+  return {
+    name: shortName,
+    version: 0,
+  };
+}
+
+function extractWebRefForCSSSelector(selector) {
+  for (const [shortname, data] of Object.entries(allWebRefData)) {
+    console.log(selector);
+    console.log(data.selectors);
+  }
+}
+
+function extractWebRefForCSSProperty(propertyName) {
+  const syntaxes = [];
+
+  for (const [shortname, data] of Object.entries(allWebRefData)) {
+    const webRefProp = data.properties.find(p => p.name === propertyName);
+    if (!webRefProp || !webRefProp.value) {
+      continue;
+    }
+
+    syntaxes.push({
+      spec: parseSpecShortName(shortname),
+      syntax: webRefProp.value,
+      initial: webRefProp.initial,
+      appliesTo: webRefProp.appliesTo,
+      inherited: webRefProp.inherited,
+      computedValue: webRefProp.computedValue,
+      animationType: webRefProp.animationType,
+      values: webRefProp.values
+    });
+  }
+
+  if (syntaxes.length === 0) {
+    return null;
+  } else if (syntaxes.length === 1) {
+    return syntaxes[0];
+  }
+
+  // We found multiple syntaxes for the same property.
+  // Let's do some cleanup.
+  // Possible scenario: syntaxes are from different versions of the same spec.
+  // For example: css-overflow, and css-overflow-4.
+  // Only keep the the syntax from the most recent spec.
+  const sameSpecs = new Set(syntaxes.map(s => s.spec.name)).size === 1;
+  if (sameSpecs) {
+    const latestVersion = Math.max(...syntaxes.map(s => s.spec.version));
+    return syntaxes.find(s => s.spec.version === latestVersion);
+  }
+  
+  return null;
+}
+
+let allWebRefData = null;
+async function extractWebRefData(path) {
+  if (!allWebRefData) {
+    allWebRefData = await css.listAll();
+  }
+
+  if (path.startsWith("css.selectors")) {
+    return extractWebRefForCSSSelector(path.split(".")[2]);
+  }
+
+  // For now, we only support css properties.
+  if (path.startsWith("css.properties")) {
+    return extractWebRefForCSSProperty(path.split(".")[2]);
+  }
+
+  return null;
+}
+
 async function main() {
   const files = await getAllFiles();
 
   const data = {};
 
   for (const file of files) {
+    if (file.includes("writing_guidelines")) {
+      console.log(`Skipping ${file}, it's meta docs`);
+      continue;
+    }
+
     const filePath = `${MDN_CONTENT_DIR}${file}`;
     const fileContent = await getFileContent(filePath);
     const frontMatter = getFrontMatter(fileContent);
@@ -269,6 +363,7 @@ async function main() {
       summary: getFileSummary(fileContent),
       specURL: getSpecURL(bcd),
       compat: cleanupBCD(bcd),
+      specData: await extractWebRefData(path)
     };
 
     // Store the new feature data into the data
