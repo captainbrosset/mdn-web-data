@@ -8,6 +8,58 @@ import markdownToText from "markdown-to-text";
 const removeMarkdown = markdownToText.default;
 
 const MDN_CONTENT_DIR = "./mdn-content/content/files/en-us/";
+const MDN_CONTENT_INCLUDE = "**/*.md";
+const MDN_CONTENT_IGNORE = [
+  "mdn/**/*.md",
+  "mozilla/**/*.md"
+];
+const MDN_PAGE_TYPES = [
+  "css-at-rule-descriptor",
+  "css-at-rule",
+  "css-combinator",
+  "css-function",
+  "css-keyword",
+  "css-media-feature",
+  "css-module",
+  "css-property",
+  "css-pseudo-class",
+  "css-pseudo-element",
+  "css-selector",
+  "css-shorthand-property",
+  "css-type",
+  "html-attribute-value",
+  "html-attribute",
+  "html-element",
+  "javascript-class",
+  "javascript-constructor",
+  "javascript-function",
+  "javascript-global-property",
+  "javascript-instance-accessor-property",
+  "javascript-instance-data-property",
+  "javascript-instance-method",
+  "javascript-language-feature",
+  "javascript-namespace",
+  "javascript-operator",
+  "javascript-statement",
+  "javascript-static-accessor-property",
+  "javascript-static-data-property",
+  "javascript-static-method",
+  "svg-attribute",
+  "svg-element",
+  "web-api-constructor",
+  "web-api-event",
+  "web-api-global-function",
+  "web-api-global-property",
+  "web-api-instance-event",
+  "web-api-instance-method",
+  "web-api-instance-property",
+  "web-api-interface",
+  "web-api-overview",
+  "web-api-static-method",
+  "web-api-static-property",
+  "webgl-extension-method",
+  "webgl-extension",
+];
 const DIST_DIR = "./dist/";
 const FILES_TO_COPY = [
   "README.md"
@@ -17,9 +69,9 @@ const FILES_TO_COPY = [
  * Get the list of all MDN markdown files that we want to process.
  */
 function getAllFiles() {
-  const files = glob("**/*.md", {
+  const files = glob(MDN_CONTENT_INCLUDE, {
     cwd: MDN_CONTENT_DIR,
-    ignore: [],
+    ignore: MDN_CONTENT_IGNORE,
   });
 
   return files;
@@ -33,9 +85,12 @@ function getFileContent(filePath) {
 }
 
 /**
- * Given the content of a file, return either null if the
- * file doesn't have front matter or an object with the
+ * Given the content of a file, return an object with the
  * front matter fields.
+ * Returns null if the file does not have a front-matter
+ * or if the front-matter does not have the fields we
+ * think are required to generate data: browser-compat
+ * and page-type.
  */
 function getFrontMatter(file) {
   if (!file.startsWith("---")) {
@@ -58,6 +113,7 @@ function getFrontMatter(file) {
 
   const fields = {};
   let hasBrowserCompat = false;
+  let hasPageType = false;
   for (const field of frontMatter) {
     let [key, ...value] = field.split(":");
     key = key.trim();
@@ -67,10 +123,14 @@ function getFrontMatter(file) {
       hasBrowserCompat = true;
     }
 
+    if (key === "page-type" && !!value) {
+      hasPageType = true;
+    }
+
     fields[key] = value;
   }
 
-  if (!hasBrowserCompat) {
+  if (!hasBrowserCompat || !hasPageType) {
     return null;
   }
 
@@ -86,37 +146,49 @@ function getFrontMatter(file) {
 function getFileSummary(fileContent) {
   const lines = fileContent.split("\n");
 
-  // Find the second instance of ---
-  let summaryStart = 0;
+  // Find the second instance of ---, which signals the
+  // end of the front-matter section.
+  let summaryStartLine = 0;
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (line.startsWith("---")) {
-      summaryStart = i + 1;
+      summaryStartLine = i + 1;
       break;
     }
   }
 
-  // Get the first usable paragraph, which means skipping over
-  // empty lines
-  // {{}} macros
-  // html content
-  let summary = "";
-  for (let i = summaryStart; i < lines.length; i++) {
+  const summary = [];
+  let startedCollectingSummary = false;
+
+  for (let i = summaryStartLine; i < lines.length; i++) {
     const line = lines[i];
-    if (line.startsWith("{{")) {
-      continue;
+
+    // Skip empty lines, sidebar macros, and HTML content which
+    // might appear before the summary section.
+    if (!startedCollectingSummary) {
+      if (line.startsWith("{{")) {
+        continue;
+      }
+      if (line.trim() === "") {
+        continue;
+      }
+      if (line.trim().startsWith("<")) {
+        continue;
+      }
     }
-    if (line.trim() === "") {
-      continue;
+
+    // Stop when we see the first section heading.
+    if (startedCollectingSummary) {
+      if (line.startsWith("#")) {
+        break;
+      }
     }
-    if (line.trim().startsWith("<")) {
-      continue;
-    }
-    summary = line;
-    break;
+
+    summary.push(line);
+    startedCollectingSummary = true;
   }
 
-  return convertMDToText(summary);
+  return convertMDToText(summary.join("\n"));
 }
 
 /**
@@ -136,7 +208,7 @@ function convertMDToText(md) {
   let text = removeMarkdown(md);
 
   // Replace macros with the text inside the quotes.
-  text = text.replace(/{{.*?}}/g, (match) => {
+  text = text.replace(/{{(.|\s)*?}}/g, (match) => {
     const matchText = match.match(/['"](.*?)['"]/);
     if (matchText) {
       return matchText[1];
@@ -268,8 +340,8 @@ function parseSpecShortName(shortName) {
 
 function extractWebRefForCSSSelector(selector) {
   for (const [shortname, data] of Object.entries(allWebRefData)) {
-    console.log(selector);
-    console.log(data.selectors);
+    // console.log(selector);
+    // console.log(data.selectors);
   }
 }
 
@@ -315,18 +387,17 @@ function extractWebRefForCSSProperty(propertyName) {
 }
 
 let allWebRefData = null;
-async function extractWebRefData(path) {
+async function extractWebRefData(path, type) {
   if (!allWebRefData) {
     allWebRefData = await css.listAll();
   }
 
-  if (path.startsWith("css.selectors")) {
-    return extractWebRefForCSSSelector(path.split(".")[2]);
+  if (type === "css-property") {
+    return extractWebRefForCSSProperty(path.split(".")[2]);
   }
 
-  // For now, we only support css properties.
-  if (path.startsWith("css.properties")) {
-    return extractWebRefForCSSProperty(path.split(".")[2]);
+  if (type === "css-selector") {
+    return extractWebRefForCSSSelector(path.split(".")[2]);
   }
 
   return null;
@@ -338,11 +409,6 @@ async function main() {
   const data = {};
 
   for (const file of files) {
-    if (file.includes("writing_guidelines")) {
-      console.log(`Skipping ${file}, it's meta docs`);
-      continue;
-    }
-
     const filePath = `${MDN_CONTENT_DIR}${file}`;
     const fileContent = await getFileContent(filePath);
     const frontMatter = getFrontMatter(fileContent);
@@ -351,19 +417,28 @@ async function main() {
       console.log(`Skipping ${file}, no usable front matter.`);
       continue;
     }
-    console.log(`Processing ${file}...`);
+    
+    const pageType = frontMatter["page-type"];
 
+    if (!MDN_PAGE_TYPES.includes(pageType)) {
+      console.log(`Skipping ${file}, ignoring ${pageType} page types.`);
+      continue;
+    }
+    
+    console.log(`Processing ${file}...`);
+  
     const path = frontMatter["browser-compat"];
     const bcd = getBrowserCompat(frontMatter);
 
     const featureData = {
       path,
+      type: pageType,
       title: frontMatter.title,
       mdnURL: getMDNURL(frontMatter),
       summary: getFileSummary(fileContent),
       specURL: getSpecURL(bcd),
       compat: cleanupBCD(bcd),
-      specData: await extractWebRefData(path)
+      specData: await extractWebRefData(path, pageType)
     };
 
     // Store the new feature data into the data

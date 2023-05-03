@@ -33,3 +33,9 @@ import mdnWebData from "mdn-web-data";
 
 console.log(mdnWebData.css.property.margin.summary);
 ```
+
+## Generate a data update
+
+1. Clone the repository.
+1. Install the dependencies: `npm install`.
+1. Generate the data: `npm run build`.
